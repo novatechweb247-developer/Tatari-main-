@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, CheckCircle2, AlertCircle, Loader2, Image as ImageIcon, Video, FolderOpen } from 'lucide-react';
+import { getClientAdminSecretPath } from '../../adminSecret';
 
 interface CloudinaryUploaderProps {
   currentUrl?: string;
@@ -18,6 +19,7 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
   label = 'Upload Media to Cloudinary',
   onOpenMediaLibrary,
 }) => {
+  const secretPath = getClientAdminSecretPath();
   const [isUploading, setIsUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +57,7 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Secret-Path': secretPath,
         },
         body: JSON.stringify({
           file: base64Data,

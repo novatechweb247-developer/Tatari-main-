@@ -12,6 +12,8 @@ import {
   FileText,
 } from 'lucide-react';
 
+import { getClientAdminSecretPath } from '../../adminSecret';
+
 interface DiagnosticsPanelProps {
   diagnostics: any;
   onRefresh: () => void;
@@ -21,6 +23,7 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({
   diagnostics,
   onRefresh,
 }) => {
+  const secretPath = getClientAdminSecretPath();
   const [testingDb, setTestingDb] = useState(false);
   const [dbTestResult, setDbTestResult] = useState<string | null>(null);
 
@@ -28,7 +31,9 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({
     setTestingDb(true);
     setDbTestResult(null);
     try {
-      const res = await fetch('/api/admin/content');
+      const res = await fetch('/api/admin/content', {
+        headers: { 'X-Secret-Path': secretPath },
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.draft && data.published) {

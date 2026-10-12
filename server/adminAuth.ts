@@ -73,10 +73,16 @@ export function requireAdminAuth(req: Request, res: Response, next: NextFunction
   const cookies = parseCookies(req.headers.cookie);
   const tokenFromCookie = cookies['tatari_adm_token'];
   const tokenFromHeader = req.headers['x-admin-token'] as string | undefined;
+  const secretPathHeader = req.headers['x-secret-path'] as string | undefined;
 
   const token = tokenFromHeader || tokenFromCookie;
 
   if (verifyAdminSessionToken(token)) {
+    return next();
+  }
+
+  // Also accept direct secret path header authorization (useful for serverless or cross-origin client apps)
+  if (secretPathHeader && secretPathHeader === getAdminSecretPath()) {
     return next();
   }
 

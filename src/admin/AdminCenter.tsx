@@ -52,14 +52,27 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [mediaPickerCallback, setMediaPickerCallback] = useState<((url: string) => void) | null>(null);
 
+  const adminFetch = async (url: string, options: RequestInit = {}) => {
+    const headers = new Headers(options.headers || {});
+    headers.set('X-Secret-Path', secretPath);
+    return fetch(url, { ...options, headers });
+  };
+
   // Load initial draft, published, inquiries, and diagnostics
   const loadAdminData = async () => {
     try {
       setIsLoading(true);
+      // Ensure session is initialized
+      await fetch('/api/admin/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Secret-Path': secretPath },
+        body: JSON.stringify({ secretPath }),
+      }).catch(() => null);
+
       const [resContent, resInquiries, resDiag] = await Promise.all([
-        fetch('/api/admin/content'),
-        fetch('/api/admin/inquiries'),
-        fetch('/api/admin/diagnostics'),
+        adminFetch('/api/admin/content'),
+        adminFetch('/api/admin/inquiries'),
+        adminFetch('/api/admin/diagnostics'),
       ]);
 
       if (resContent.ok) {
@@ -76,7 +89,7 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
         setDiagnostics(diag);
       }
     } catch (err: any) {
-      setStatusMessage({ type: 'error', text: 'Failed to connect to administrative backend services.' });
+      showNotification('error', 'Failed to connect to administrative backend services.');
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +118,7 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
     if (!content) return;
     setIsSavingDraft(true);
     try {
-      const res = await fetch('/api/admin/content/draft', {
+      const res = await adminFetch('/api/admin/content/draft', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
@@ -116,7 +129,7 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
       setHasUnsavedChanges(false);
       showNotification('success', 'Draft saved successfully to persistent database.');
       // Refresh diagnostics
-      const diagRes = await fetch('/api/admin/diagnostics');
+      const diagRes = await adminFetch('/api/admin/diagnostics');
       if (diagRes.ok) setDiagnostics(await diagRes.json());
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to persist draft.');
@@ -139,14 +152,14 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
     setIsPublishing(true);
     try {
       // First persist draft
-      await fetch('/api/admin/content/draft', {
+      await adminFetch('/api/admin/content/draft', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
       });
 
       // Then trigger publish
-      const res = await fetch('/api/admin/content/publish', {
+      const res = await adminFetch('/api/admin/content/publish', {
         method: 'POST',
       });
       const data = await res.json();
@@ -156,7 +169,7 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
       setHasUnsavedChanges(false);
       showNotification('success', 'Published successfully! Live website updated.');
 
-      const diagRes = await fetch('/api/admin/diagnostics');
+      const diagRes = await adminFetch('/api/admin/diagnostics');
       if (diagRes.ok) setDiagnostics(await diagRes.json());
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to publish changes.');
@@ -176,7 +189,7 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
     }
 
     try {
-      const res = await fetch('/api/admin/content/discard', { method: 'POST' });
+      const res = await adminFetch('/api/admin/content/discard', { method: 'POST' });
       const data = await res.json();
       if (res.ok && data.draft) {
         setContent(data.draft);
@@ -191,7 +204,7 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
   // Inquiries actions
   const handleUpdateInquiry = async (id: string, status: any, notes?: string) => {
     try {
-      const res = await fetch(`/api/admin/inquiries/${id}`, {
+      const res = await adminFetch(`/api/admin/inquiries/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, notes }),
@@ -209,7 +222,7 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
 
   const handleDeleteInquiry = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/inquiries/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/admin/inquiries/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setInquiries((prev) => prev.filter((i) => i.id !== id));
         showNotification('success', 'Inquiry deleted.');

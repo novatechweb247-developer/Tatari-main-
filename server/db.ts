@@ -84,7 +84,11 @@ export interface DatabaseSchema {
   };
 }
 
-const DB_DIR = path.resolve(process.cwd(), 'server', 'data');
+const isVercel = Boolean(process.env.VERCEL);
+const DB_DIR = isVercel
+  ? path.resolve('/tmp', 'tatari_data')
+  : path.resolve(process.cwd(), 'server', 'data');
+const SEED_FILE = path.resolve(process.cwd(), 'server', 'data', 'tatari_db.json');
 const DB_FILE = path.join(DB_DIR, 'tatari_db.json');
 
 const INITIAL_CONTENT: WebsiteContent = {
@@ -142,8 +146,12 @@ class PersistentDatabase {
   }
 
   private ensureDirectory() {
-    if (!fs.existsSync(DB_DIR)) {
-      fs.mkdirSync(DB_DIR, { recursive: true });
+    try {
+      if (!fs.existsSync(DB_DIR)) {
+        fs.mkdirSync(DB_DIR, { recursive: true });
+      }
+    } catch (err) {
+      console.warn('[Database] Warning: Could not create DB directory, will fallback to memory:', err);
     }
   }
 
@@ -153,6 +161,14 @@ class PersistentDatabase {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
         if (parsed && parsed.contentDraft && parsed.contentPublished) {
+          return parsed;
+        }
+      }
+      if (isVercel && fs.existsSync(SEED_FILE)) {
+        const raw = fs.readFileSync(SEED_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.contentDraft && parsed.contentPublished) {
+          this.persistSync(parsed);
           return parsed;
         }
       }
@@ -204,12 +220,12 @@ class PersistentDatabase {
 
   private persistSync(dataToSave: DatabaseSchema) {
     try {
+      this.ensureDirectory();
       const tempPath = `${DB_FILE}.${Date.now()}.tmp`;
       fs.writeFileSync(tempPath, JSON.stringify(dataToSave, null, 2), 'utf-8');
       fs.renameSync(tempPath, DB_FILE);
     } catch (err) {
-      console.error('[Database] Failed to write database file:', err);
-      throw new Error('Database persistence failed');
+      console.warn('[Database] Warning: Could not write database file to disk, updated in-memory state:', err);
     }
   }
 

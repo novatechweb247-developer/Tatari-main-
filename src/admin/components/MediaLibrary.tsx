@@ -13,6 +13,8 @@ import {
   FileCheck,
 } from 'lucide-react';
 
+import { getClientAdminSecretPath } from '../../adminSecret';
+
 interface StoredMediaAsset {
   id: string;
   url: string;
@@ -32,6 +34,7 @@ interface MediaLibraryProps {
 }
 
 export const MediaLibrary: React.FC<MediaLibraryProps> = ({ onSelectMedia }) => {
+  const secretPath = getClientAdminSecretPath();
   const [assets, setAssets] = useState<StoredMediaAsset[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -42,8 +45,8 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({ onSelectMedia }) => 
     try {
       setIsLoading(true);
       const [resMedia, resConfig] = await Promise.all([
-        fetch('/api/admin/media'),
-        fetch('/api/admin/cloudinary/config'),
+        fetch('/api/admin/media', { headers: { 'X-Secret-Path': secretPath } }),
+        fetch('/api/admin/cloudinary/config', { headers: { 'X-Secret-Path': secretPath } }),
       ]);
 
       if (resMedia.ok) {
@@ -74,7 +77,10 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({ onSelectMedia }) => 
   const handleDelete = async (id: string) => {
     if (window.confirm('Remove this asset record from the Media Library?')) {
       try {
-        const res = await fetch(`/api/admin/media/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/admin/media/${id}`, {
+          method: 'DELETE',
+          headers: { 'X-Secret-Path': secretPath },
+        });
         if (res.ok) {
           setAssets((prev) => prev.filter((a) => a.id !== id));
           if (selectedAsset?.id === id) setSelectedAsset(null);
