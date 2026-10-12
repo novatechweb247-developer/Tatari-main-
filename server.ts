@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import express from 'express';
 import { app } from './server/app';
 import { getAdminSecretPath, createAdminSessionToken } from './server/adminAuth';
 
@@ -72,8 +73,8 @@ async function startServer() {
   }
 
   function expressStaticDist() {
-    const router = require('express').Router();
-    router.use(require('express').static(path.resolve('dist')));
+    const router = express.Router();
+    router.use(express.static(path.resolve('dist')));
     router.get('*', (_req: any, res: any) => {
       res.sendFile(path.resolve('dist', 'index.html'));
     });

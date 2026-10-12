@@ -568,6 +568,17 @@
   },
   "inquiries": [
     {
+      "fullName": "Bhhhgfhiu",
+      "phone": "968996685833",
+      "category": "Living Room",
+      "subject": "Gvbvfgvuhvgf",
+      "message": "Vffyytffuygffd gnarly",
+      "preferredContact": "WhatsApp",
+      "id": "inq-1791840475787-899451ef",
+      "createdAt": "2026-10-12T21:27:55.787Z",
+      "status": "new"
+    },
+    {
       "fullName": "Ngozi Eze",
       "phone": "0803 111 2233",
       "category": "Living Room",
@@ -603,10 +614,23 @@
       "notes": "Followed up via WhatsApp with wood sample photos."
     }
   ],
-  "mediaAssets": [],
+  "mediaAssets": [
+    {
+      "secureUrl": "https://res.cloudinary.com/yftmlkyo/image/upload/v1791840474/tatari_furniture/ftdlhyjjua9m035yhacl.png",
+      "url": "http://res.cloudinary.com/yftmlkyo/image/upload/v1791840474/tatari_furniture/ftdlhyjjua9m035yhacl.png",
+      "publicId": "tatari_furniture/ftdlhyjjua9m035yhacl",
+      "format": "png",
+      "resourceType": "image",
+      "width": 1,
+      "height": 1,
+      "bytes": 67,
+      "id": "asset-1791840475504-96030c0c",
+      "createdAt": "2026-10-12T21:27:55.504Z"
+    }
+  ],
   "meta": {
-    "lastDraftSavedAt": "2026-10-12T20:08:06.527Z",
-    "lastPublishedAt": "2026-10-12T20:08:06.542Z",
+    "lastDraftSavedAt": "2026-10-12T21:27:51.306Z",
+    "lastPublishedAt": "2026-10-12T21:29:35.464Z",
     "createdAt": "2026-10-12T20:07:24.319Z"
   }
 }
