@@ -48,7 +48,7 @@ export interface WebsiteContentState {
   };
 }
 
-const DEFAULT_CONTENT: WebsiteContentState = {
+export const DEFAULT_CONTENT: WebsiteContentState = {
   businessInfo: BUSINESS_INFO,
   heroSlides: HERO_SLIDES,
   products: PRODUCTS,

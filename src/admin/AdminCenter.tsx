@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { WebsiteContentState } from '../context/WebsiteContentContext';
+import { WebsiteContentState, DEFAULT_CONTENT } from '../context/WebsiteContentContext';
 import { OverviewDashboard } from './components/OverviewDashboard';
 import { HeroSlidesEditor } from './components/HeroSlidesEditor';
 import { EditorialEditor } from './components/EditorialEditor';
@@ -30,6 +30,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  WifiOff,
+  RefreshCw,
 } from 'lucide-react';
 
 interface AdminCenterProps {
@@ -39,11 +41,12 @@ interface AdminCenterProps {
 
 export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate }) => {
   const [activeSection, setActiveSection] = useState<string>('overview');
-  const [content, setContent] = useState<WebsiteContentState | null>(null);
-  const [publishedSnapshot, setPublishedSnapshot] = useState<WebsiteContentState | null>(null);
+  const [content, setContent] = useState<WebsiteContentState>(DEFAULT_CONTENT);
+  const [publishedSnapshot, setPublishedSnapshot] = useState<WebsiteContentState>(DEFAULT_CONTENT);
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [diagnostics, setDiagnostics] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -52,44 +55,105 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [mediaPickerCallback, setMediaPickerCallback] = useState<((url: string) => void) | null>(null);
 
+  const getAdminToken = (): string | null => {
+    if (typeof window !== 'undefined') {
+      const bootstrapToken = (window as any).__TATARI_ADMIN_BOOTSTRAP__?.token;
+      if (bootstrapToken) return bootstrapToken;
+      try {
+        return sessionStorage.getItem('tatari_adm_token') || localStorage.getItem('tatari_adm_token');
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
   const adminFetch = async (url: string, options: RequestInit = {}) => {
     const headers = new Headers(options.headers || {});
     headers.set('X-Secret-Path', secretPath);
-    return fetch(url, { ...options, headers });
+    const token = getAdminToken();
+    if (token) {
+      headers.set('X-Admin-Token', token);
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    return fetch(url, { ...options, headers, credentials: 'include' });
   };
 
   // Load initial draft, published, inquiries, and diagnostics
   const loadAdminData = async () => {
     try {
       setIsLoading(true);
-      // Ensure session is initialized
-      await fetch('/api/admin/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Secret-Path': secretPath },
-        body: JSON.stringify({ secretPath }),
-      }).catch(() => null);
 
-      const [resContent, resInquiries, resDiag] = await Promise.all([
-        adminFetch('/api/admin/content'),
-        adminFetch('/api/admin/inquiries'),
-        adminFetch('/api/admin/diagnostics'),
+      // 1. Initialize session and acquire signed token if available
+      try {
+        const sessRes = await fetch('/api/admin/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Secret-Path': secretPath },
+          body: JSON.stringify({ secretPath }),
+          credentials: 'include',
+        });
+        if (sessRes.ok) {
+          const sessData = await sessRes.json();
+          if (sessData.token) {
+            try {
+              sessionStorage.setItem('tatari_adm_token', sessData.token);
+            } catch {}
+          }
+        }
+      } catch {
+        // Proceed with direct secret header
+      }
+
+      // 2. Load administrative endpoints concurrently with allSettled
+      // Each fetch has a 5-second timeout to prevent any infinite freeze
+      const fetchWithTimeout = async (endpoint: string, timeoutMs = 5000) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const res = await adminFetch(endpoint, { signal: controller.signal });
+          clearTimeout(timer);
+          return res;
+        } catch (e) {
+          clearTimeout(timer);
+          throw e;
+        }
+      };
+
+      const [resContentSettled, resInquiriesSettled, resDiagSettled] = await Promise.allSettled([
+        fetchWithTimeout('/api/admin/content'),
+        fetchWithTimeout('/api/admin/inquiries'),
+        fetchWithTimeout('/api/admin/diagnostics'),
       ]);
 
-      if (resContent.ok) {
-        const data = await resContent.json();
-        setContent(data.draft);
-        setPublishedSnapshot(data.published);
+      let loadedContent = false;
+      if (resContentSettled.status === 'fulfilled' && resContentSettled.value.ok) {
+        const data = await resContentSettled.value.json();
+        if (data.draft) {
+          setContent(data.draft);
+          loadedContent = true;
+        }
+        if (data.published) {
+          setPublishedSnapshot(data.published);
+        }
       }
-      if (resInquiries.ok) {
-        const inqs = await resInquiries.json();
+
+      if (resInquiriesSettled.status === 'fulfilled' && resInquiriesSettled.value.ok) {
+        const inqs = await resInquiriesSettled.value.json();
         setInquiries(inqs);
       }
-      if (resDiag.ok) {
-        const diag = await resDiag.json();
+
+      if (resDiagSettled.status === 'fulfilled' && resDiagSettled.value.ok) {
+        const diag = await resDiagSettled.value.json();
         setDiagnostics(diag);
       }
+
+      setIsConnected(loadedContent);
+      if (!loadedContent) {
+        showNotification('error', 'Working in offline mode with cached content. Click Reconnect to sync.');
+      }
     } catch (err: any) {
-      showNotification('error', 'Failed to connect to administrative backend services.');
+      setIsConnected(false);
+      showNotification('error', 'Working in offline mode with cached content.');
     } finally {
       setIsLoading(false);
     }
@@ -97,6 +161,11 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
 
   useEffect(() => {
     loadAdminData();
+    // Maximum 3.5s loading ceiling: Never hold the user on a blank loader
+    const safetyTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 3500);
+    return () => clearTimeout(safetyTimer);
   }, []);
 
   const showNotification = (type: 'success' | 'error', text: string) => {
@@ -260,12 +329,18 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
     { id: 'diagnostics', label: 'Diagnostics', icon: Activity },
   ];
 
-  if (isLoading || !content) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-[#F6F1E8] flex flex-col items-center justify-center p-6 text-[#1C1511]">
         <Loader2 className="w-10 h-10 text-[#C9A45C] animate-spin mb-4" />
         <h2 className="font-serif text-2xl font-light">Loading Admin Center...</h2>
         <p className="text-xs text-[#3A271C]/60 mt-1 font-mono">Authenticating secure session...</p>
+        <button
+          onClick={() => setIsLoading(false)}
+          className="mt-6 px-5 py-2 text-xs font-semibold text-[#1C1511] bg-white border border-[#D8CEC0] rounded-full hover:bg-[#ECE4D8] transition-all shadow-sm"
+        >
+          Enter Admin Workspace
+        </button>
       </div>
     );
   }
@@ -345,6 +420,25 @@ export const AdminCenter: React.FC<AdminCenterProps> = ({ secretPath, onNavigate
           </a>
         </div>
       </header>
+
+      {/* Offline / Reconnecting Banner */}
+      {isConnected === false && (
+        <div className="bg-amber-800 text-amber-50 px-4 py-2 text-xs flex items-center justify-between border-b border-amber-900 shadow-inner">
+          <div className="flex items-center space-x-2">
+            <WifiOff className="w-4 h-4 flex-shrink-0 text-amber-300" />
+            <span>
+              <strong>Administrative Backend Offline or Syncing:</strong> Running on resilient local cached content.
+            </span>
+          </div>
+          <button
+            onClick={() => loadAdminData()}
+            className="inline-flex items-center space-x-1 px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full text-xs font-semibold uppercase tracking-wider text-white transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span>Retry Connection</span>
+          </button>
+        </div>
+      )}
 
       {/* Status Alert Notification */}
       {statusMessage && (

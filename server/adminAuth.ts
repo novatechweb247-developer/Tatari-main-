@@ -73,16 +73,24 @@ export function requireAdminAuth(req: Request, res: Response, next: NextFunction
   const cookies = parseCookies(req.headers.cookie);
   const tokenFromCookie = cookies['tatari_adm_token'];
   const tokenFromHeader = req.headers['x-admin-token'] as string | undefined;
-  const secretPathHeader = req.headers['x-secret-path'] as string | undefined;
-
-  const token = tokenFromHeader || tokenFromCookie;
+  const bearerToken = req.headers.authorization?.startsWith('Bearer ')
+    ? req.headers.authorization.slice(7).trim()
+    : undefined;
+  const token = tokenFromHeader || bearerToken || tokenFromCookie;
 
   if (verifyAdminSessionToken(token)) {
     return next();
   }
 
-  // Also accept direct secret path header authorization (useful for serverless or cross-origin client apps)
-  if (secretPathHeader && secretPathHeader === getAdminSecretPath()) {
+  // Also accept direct secret path authorization (from headers or query)
+  const secretPathHeader = (req.headers['x-secret-path'] as string | undefined)?.trim();
+  const secretPathQuery = (req.query['secret_path'] || req.query['x-secret-path']) as string | undefined;
+  const providedSecret = secretPathHeader || secretPathQuery;
+
+  const normalizePath = (p?: string) => p ? p.trim().replace(/\/+$/, '') : '';
+  const configuredSecret = normalizePath(getAdminSecretPath());
+
+  if (providedSecret && normalizePath(providedSecret) === configuredSecret) {
     return next();
   }
 

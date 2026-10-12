@@ -24,7 +24,10 @@ export default function App() {
   const [loadingComplete, setLoadingComplete] = useState<boolean>(false);
 
   const secretPath = getClientAdminSecretPath();
-  const isAdminRoute = currentPath === secretPath || (window as any).__TATARI_ADMIN_BOOTSTRAP__?.authorized;
+  const normalizePath = (p: string) => (p || '/').trim().replace(/\/+$/, '') || '/';
+  const isAdminRoute =
+    normalizePath(currentPath) === normalizePath(secretPath) ||
+    Boolean((window as any).__TATARI_ADMIN_BOOTSTRAP__?.authorized);
 
   useEffect(() => {
     const handlePopState = () => {

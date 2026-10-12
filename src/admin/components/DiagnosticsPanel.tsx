@@ -31,8 +31,21 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({
     setTestingDb(true);
     setDbTestResult(null);
     try {
+      const headers: Record<string, string> = { 'X-Secret-Path': secretPath };
+      try {
+        const token =
+          (typeof window !== 'undefined' && (window as any).__TATARI_ADMIN_BOOTSTRAP__?.token) ||
+          sessionStorage.getItem('tatari_adm_token') ||
+          localStorage.getItem('tatari_adm_token');
+        if (token) {
+          headers['X-Admin-Token'] = token;
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      } catch {}
+
       const res = await fetch('/api/admin/content', {
-        headers: { 'X-Secret-Path': secretPath },
+        headers,
+        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();

@@ -16,9 +16,31 @@ dotenv.config();
 
 export const app = express();
 
+// CORS & Preflight handling for iframe previews and cross-origin environments
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Secret-Path, X-Admin-Token');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 // Body parsers with generous limits for media upload payloads
 app.use(express.json({ limit: '60mb' }));
 app.use(express.urlencoded({ extended: true, limit: '60mb' }));
+
+// Serverless URL normalization (in case rewrites pass /admin/* or /health without /api prefix)
+app.use((req, _res, next) => {
+  if (req.url.startsWith('/admin/') && !req.url.startsWith('/api/admin/')) {
+    req.url = '/api' + req.url;
+  } else if (req.url === '/content' || req.url.startsWith('/content?')) {
+    req.url = '/api' + req.url;
+  }
+  next();
+});
 
 // ----------------------------------------------------
 // Public APIs
@@ -74,13 +96,17 @@ app.get('/api/health', (_req, res) => {
 
 // Admin Session Acquisition (can exchange secret path for signed session token)
 app.post('/api/admin/session', (req, res) => {
-  const secretPathProvided = req.body?.secretPath || req.headers['x-secret-path'];
-  if (secretPathProvided && secretPathProvided === getAdminSecretPath()) {
+  const secretPathProvided = (req.body?.secretPath || req.headers['x-secret-path'] || req.query?.secret_path) as string | undefined;
+  const normalizePath = (p?: string) => p ? p.trim().replace(/\/+$/, '') : '';
+  const configuredSecret = normalizePath(getAdminSecretPath());
+
+  if (secretPathProvided && normalizePath(secretPathProvided) === configuredSecret) {
     const token = createAdminSessionToken();
     res.cookie('tatari_adm_token', token, {
       path: '/',
       httpOnly: false,
-      sameSite: 'lax',
+      sameSite: 'none',
+      secure: true,
       maxAge: 7 * 24 * 3600 * 1000,
     });
     return res.json({

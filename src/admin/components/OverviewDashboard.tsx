@@ -37,7 +37,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   isSaving,
   isPublishing,
 }) => {
-  const newInquiriesCount = inquiries.filter((i) => i.status === 'new').length;
+  const newInquiriesCount = (inquiries || []).filter((i) => i?.status === 'new').length;
   const isCloudinaryConfigured = diagnostics?.cloudinary?.configured;
 
   const formatDate = (dateStr?: string | null) => {
@@ -141,7 +141,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               </span>
             )}
           </div>
-          <div className="text-3xl font-serif text-[#1C1511] font-normal mb-1">{inquiries.length}</div>
+          <div className="text-3xl font-serif text-[#1C1511] font-normal mb-1">{inquiries?.length || 0}</div>
           <div className="text-xs text-[#3A271C]/70 uppercase tracking-wider font-semibold">Customer Inquiries</div>
           <div className="mt-4 pt-3 border-t border-[#ECE4D8] flex items-center text-xs text-[#C9A45C] font-medium group-hover:translate-x-1 transition-transform">
             <span>Manage Inquiries</span>
@@ -160,7 +160,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             </div>
             <span className="text-[10px] text-[#3A271C]/60 uppercase tracking-wider">Catalog</span>
           </div>
-          <div className="text-3xl font-serif text-[#1C1511] font-normal mb-1">{content.products.length}</div>
+          <div className="text-3xl font-serif text-[#1C1511] font-normal mb-1">{content?.products?.length || 0}</div>
           <div className="text-xs text-[#3A271C]/70 uppercase tracking-wider font-semibold">Furniture Products</div>
           <div className="mt-4 pt-3 border-t border-[#ECE4D8] flex items-center text-xs text-[#C9A45C] font-medium group-hover:translate-x-1 transition-transform">
             <span>Edit Inventory</span>
@@ -256,7 +256,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         <div className="bg-white p-6 rounded-2xl border border-[#D8CEC0] flex flex-col justify-between">
           <div>
             <span className="text-[10px] uppercase tracking-wider text-[#C9A45C] font-semibold">Visual Gallery</span>
-            <h3 className="font-serif text-xl text-[#1C1511] mt-1 mb-2">{content.galleryItems.length} Gallery Photos</h3>
+            <h3 className="font-serif text-xl text-[#1C1511] mt-1 mb-2">{content?.galleryItems?.length || 0} Gallery Photos</h3>
             <p className="text-xs text-[#3A271C]/70 leading-relaxed font-light">
               Upload showroom photographs and interior staging pictures. Categorize by Living Room, Bedroom, Showroom, and Interiors.
             </p>

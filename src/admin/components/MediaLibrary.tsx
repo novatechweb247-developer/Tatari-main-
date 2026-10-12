@@ -41,20 +41,35 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({ onSelectMedia }) => 
   const [configStatus, setConfigStatus] = useState<any>(null);
   const [selectedAsset, setSelectedAsset] = useState<StoredMediaAsset | null>(null);
 
+  const getHeaders = () => {
+    const headers: Record<string, string> = { 'X-Secret-Path': secretPath };
+    try {
+      const token =
+        (typeof window !== 'undefined' && (window as any).__TATARI_ADMIN_BOOTSTRAP__?.token) ||
+        sessionStorage.getItem('tatari_adm_token') ||
+        localStorage.getItem('tatari_adm_token');
+      if (token) {
+        headers['X-Admin-Token'] = token;
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    } catch {}
+    return headers;
+  };
+
   const fetchAssets = async () => {
     try {
       setIsLoading(true);
-      const [resMedia, resConfig] = await Promise.all([
-        fetch('/api/admin/media', { headers: { 'X-Secret-Path': secretPath } }),
-        fetch('/api/admin/cloudinary/config', { headers: { 'X-Secret-Path': secretPath } }),
+      const [resMediaSettled, resConfigSettled] = await Promise.allSettled([
+        fetch('/api/admin/media', { headers: getHeaders(), credentials: 'include' }),
+        fetch('/api/admin/cloudinary/config', { headers: getHeaders(), credentials: 'include' }),
       ]);
 
-      if (resMedia.ok) {
-        const data = await resMedia.json();
+      if (resMediaSettled.status === 'fulfilled' && resMediaSettled.value.ok) {
+        const data = await resMediaSettled.value.json();
         setAssets(data);
       }
-      if (resConfig.ok) {
-        const conf = await resConfig.json();
+      if (resConfigSettled.status === 'fulfilled' && resConfigSettled.value.ok) {
+        const conf = await resConfigSettled.value.json();
         setConfigStatus(conf);
       }
     } catch (err) {
@@ -79,7 +94,8 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({ onSelectMedia }) => 
       try {
         const res = await fetch(`/api/admin/media/${id}`, {
           method: 'DELETE',
-          headers: { 'X-Secret-Path': secretPath },
+          headers: getHeaders(),
+          credentials: 'include',
         });
         if (res.ok) {
           setAssets((prev) => prev.filter((a) => a.id !== id));

@@ -20,14 +20,16 @@ async function startServer() {
     });
   }
 
-  // Intercept the Secret Admin URL
-  app.get(secretPath, async (req, res) => {
+  // Intercept the Secret Admin URL (with and without trailing slash)
+  const secretRoutes = [secretPath, `${secretPath.replace(/\/+$/, '')}/`];
+  app.get(secretRoutes, async (req, res) => {
     const token = createAdminSessionToken();
     res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
     res.cookie('tatari_adm_token', token, {
       path: '/',
       httpOnly: false,
-      sameSite: 'lax',
+      sameSite: 'none',
+      secure: true,
       maxAge: 7 * 24 * 3600 * 1000,
     });
 

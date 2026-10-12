@@ -52,13 +52,26 @@ export const CloudinaryUploader: React.FC<CloudinaryUploaderProps> = ({
       reader.readAsDataURL(file);
       const base64Data = await base64Promise;
 
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-Secret-Path': secretPath,
+      };
+      try {
+        const token =
+          (typeof window !== 'undefined' && (window as any).__TATARI_ADMIN_BOOTSTRAP__?.token) ||
+          sessionStorage.getItem('tatari_adm_token') ||
+          localStorage.getItem('tatari_adm_token');
+        if (token) {
+          headers['X-Admin-Token'] = token;
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      } catch {}
+
       // Send to server-side Cloudinary upload proxy with admin credentials
       const res = await fetch('/api/admin/cloudinary/upload', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Secret-Path': secretPath,
-        },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           file: base64Data,
           folder,
